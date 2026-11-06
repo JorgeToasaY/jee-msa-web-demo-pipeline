@@ -103,6 +103,18 @@ stages:
               instructions: 'Aprobación requerida para ejecutar la fase de despliegue continuo en OpenShift Sandbox.'
               onTimeout: 'reject'
 
+  # STAGE 2.1: NOTIFICACIÓN DE APROBACIÓN
+  - stage: ApprovalNotification
+    displayName: 'Notificar aprobación'
+    dependsOn: Approval
+    condition: succeeded()
+    jobs:
+      - job: notify_approval
+        displayName: 'Aprobación concedida'
+        steps:
+          - script: echo "La aprobación fue concedida. Se continuará con el despliegue."
+            displayName: 'Notificar aprobación'
+            
   # ==========================================
   # STAGE 3: DESPLIEGUE CONTINUO (CD)
   # ==========================================
