@@ -28,13 +28,11 @@ stages:
         displayName: 'Compilar'
         dependsOn: prevalidation
         steps:
-          # 1. Descargar el JDK 25 usando la API de Adoptium
           - script: |
               echo "Descargando JDK 25..."
               curl -L -o $(Agent.TempDirectory)/jdk25.tar.gz "https://api.adoptium.net/v3/binary/latest/25/ga/linux/x64/jdk/hotspot/normal/eclipse"
             displayName: 'Descargar JDK 25'
 
-          # 2. Usar la tarea nativa para instalar java y configurar JAVA_HOME
           - task: JavaToolInstaller@0
             inputs:
               versionSpec: '25'
@@ -45,7 +43,6 @@ stages:
               cleanDestinationDirectory: true
             displayName: 'Instalar Java 25'
 
-          # 3. Compilar
           - script: |
               chmod +x gradlew
               ./gradlew compileJava -x test
@@ -55,13 +52,11 @@ stages:
         displayName: 'Pruebas y Cobertura'
         dependsOn: build
         steps:
-          # 1. Descargar el JDK 25 usando la API de Adoptium
           - script: |
               echo "Descargando JDK 25..."
               curl -L -o $(Agent.TempDirectory)/jdk25.tar.gz "https://api.adoptium.net/v3/binary/latest/25/ga/linux/x64/jdk/hotspot/normal/eclipse"
             displayName: 'Descargar JDK 25'
 
-          # 2. Usar la tarea nativa para instalar java y configurar JAVA_HOME
           - task: JavaToolInstaller@0
             inputs:
               versionSpec: '25'
@@ -72,13 +67,11 @@ stages:
               cleanDestinationDirectory: true
             displayName: 'Instalar Java 25'
 
-          # 3. Ejecutar pruebas y cobertura
           - script: |
               chmod +x gradlew
               ./gradlew check
             displayName: 'Ejecutar Pruebas y Cobertura'
 
-          # Publica el reporte visual de JaCoCo
           - task: PublishCodeCoverageResults@2
             inputs:
               summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/build/reports/jacoco/test/jacocoTestReport.xml'
@@ -103,7 +96,9 @@ stages:
               instructions: 'Aprobación requerida para ejecutar la fase de despliegue continuo en OpenShift Sandbox.'
               onTimeout: 'reject'
 
-  # STAGE 2.1: NOTIFICACIÓN DE APROBACIÓN
+  # ==========================================
+  # STAGE 3: NOTIFICACIÓN DE APROBACIÓN
+  # ==========================================
   - stage: ApprovalNotification
     displayName: 'Notificar aprobación'
     dependsOn: Approval
@@ -114,13 +109,13 @@ stages:
         steps:
           - script: echo "La aprobación fue concedida. Se continuará con el despliegue."
             displayName: 'Notificar aprobación'
-            
+
   # ==========================================
-  # STAGE 3: DESPLIEGUE CONTINUO (CD)
+  # STAGE 4: DESPLIEGUE CONTINUO (CD)
   # ==========================================
   - stage: CD
     displayName: 'CD'
-    dependsOn: Approval
+    dependsOn: ApprovalNotification
     condition: succeeded()
     jobs:
       - job: deploy_openshift
@@ -158,11 +153,15 @@ stages:
             displayName: 'Descarga CLI, Login y Despliegue Docker'
 
   # ==========================================
-  # STAGE 4: NOTIFICACIONES (NOTIFICATIONS)
+  # STAGE 5: NOTIFICACIONES FINALES
   # ==========================================
   - stage: Notifications
     displayName: 'Notificar'
-    dependsOn: [CI, Approval, CD]
+    dependsOn:
+      - CI
+      - Approval
+      - ApprovalNotification
+      - CD
     condition: always()
     jobs:
       - job: send_status_email
